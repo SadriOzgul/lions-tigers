@@ -1,0 +1,155 @@
+// Timer used to automatically change slides
+let timer;
+
+// Timer used to delay removing the old slide
+let deleteFirstPhotoDelay;
+
+// Array that will store all image URLs for the selected breed
+let images = [];
+
+// Keeps track of which image should show next
+let currentPosition = 0;
+
+// Starts the app and loads the list of dog breeds
+async function start() {
+  try {
+    // Fetch the list of all dog breeds from the Dog API
+    const response = await fetch("https://dog.ceo/api/breeds/list/all");
+
+    // Convert the response into JSON
+    const data = await response.json();
+
+    // Create the dropdown list of dog breeds
+    createBreedList(data.message);
+  } catch (e) {
+    // If something goes wrong, log an error
+    console.log("There was a problem here.", e);
+  }
+}
+
+// Call start() when the page loads
+start();
+
+// Creates the dropdown menu with all dog breeds
+function createBreedList(breedList) {
+  // Insert a <select> dropdown into the "breed" div
+  document.getElementById("breed").innerHTML = `
+    <select onchange="loadByBreed(this.value)">
+      <option>Choose a dog breed</option>
+
+      ${
+        // Loop through all breed names and turn them into <option> elements
+        Object.keys(breedList)
+          .map((breed) => `<option value="${breed}">${breed}</option>`)
+          .join("")
+      }
+    </select>
+  `;
+}
+
+// Runs when the user selects a breed from the dropdown
+async function loadByBreed(breed) {
+  // Do nothing if the user hasn't chosen a real breed yet
+  if (breed === "Choose a dog breed") return;
+
+  // Fetch all images for the selected breed
+  const response = await fetch(
+    `https://dog.ceo/api/breed/${breed}/images`
+  );
+
+  // Convert the response into JSON
+  const data = await response.json();
+
+  // Start the slideshow using the image URLs
+  createSlideShow(data.message);
+}
+
+// Sets up the slideshow when new images are loaded
+function createSlideShow(imgArray) {
+  // Store the images globally
+  images = imgArray;
+
+  // Start from the first image
+  currentPosition = 0;
+
+  // Stop any previous slideshow timers
+  clearInterval(timer);
+  clearTimeout(deleteFirstPhotoDelay);
+
+  // Get the slideshow container
+  const slideshow = document.getElementById("slideshow");
+
+  // Remove any existing slides
+  slideshow.innerHTML = "";
+
+  // If there are no images, stop
+  if (!images.length) return;
+
+  // Show the first image immediately (no fade)
+  addSlide(images[0], true);
+
+  // If there is only one image, don't start the slideshow
+  if (images.length === 1) return;
+
+  // Move to the next image
+  currentPosition = 1;
+
+  // Change the slide every 3 seconds
+  timer = setInterval(nextSlide, 3000);
+}
+
+// Adds a new slide to the slideshow
+function addSlide(url, instant = false) {
+  // Get the slideshow container
+  const slideshow = document.getElementById("slideshow");
+
+  // Create a new div for the slide
+  const newSlide = document.createElement("div");
+
+  // Apply the slide class (for CSS styling)
+  newSlide.className = "slide";
+
+  // Set the background image using the URL
+  newSlide.style.backgroundImage = `url('${url}')`;
+
+  // Add the new slide to the slideshow
+  slideshow.appendChild(newSlide);
+
+  // If this is the first slide, show it instantly
+  if (instant) {
+    newSlide.style.opacity = "1";
+    return;
+  }
+
+  // Fade in the new slide
+  requestAnimationFrame(() => {
+    newSlide.style.opacity = "1";
+  });
+
+  // Find the old slide (the first slide in the container)
+  const firstSlide = slideshow.querySelector(".slide");
+
+  // Fade out and remove the old slide
+  if (firstSlide && firstSlide !== newSlide) {
+    // Make the old slide invisible
+    firstSlide.style.opacity = "0";
+
+    // Wait 1 second (matches CSS fade time), then remove it
+    deleteFirstPhotoDelay = setTimeout(() => {
+      if (firstSlide.parentNode) firstSlide.remove();
+    }, 1000);
+  }
+}
+
+// Moves to the next image in the slideshow
+function nextSlide() {
+  // Add the next image as a new slide
+  addSlide(images[currentPosition]);
+
+  // Move to the next image, or loop back to the start
+  if (currentPosition + 1 >= images.length) {
+    currentPosition = 0;
+  } else {
+    currentPosition++;
+  }
+}
